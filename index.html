@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>Phaser - Making your first game, part 1</title>
+	<script type="text/javascript" src="js/phaser.min.js"></script>
+	<script src="https://js.pusher.com/3.2/pusher.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+var enemies = {};
+var name = window.prompt()
+//Pusher.logToConsole = true;
+var pusher = new Pusher('7a1bfccdbcc30d3a4853', {
+ cluster: 'eu',
+ encrypted: true,
+});
+var game;
+setTimeout(function () {
+	game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+}, 2000)
+var sprites;
+var channel = pusher.subscribe('private-positions');
+channel.bind('client-on_change', function(data) {
+	var sprite = enemies[data.name]
+	sprite.position.x = data.x
+});
+channel.bind('client-on_creation', function(data) {
+	var child = new Phaser.Sprite(game, data.x, data.y, 'star')
+	var sprite = sprites.addChild(child)
+	enemies[data.name] = child
+	console.log(sprite);
+});
+
+function preload() {
+	game.load.image('sky', 'assets/sky.png')
+	game.load.image('ground', 'assets/platform.png')
+	game.load.image('star', 'assets/star.png')
+	game.load.spritesheet('dude', 'assets/dude.png', 32, 48)
+}
+
+var platforms;
+var star;
+
+function create() {
+	game.physics.startSystem(Phaser.Physics.ARCADE);
+	game.add.sprite(0,0,'sky');
+	sprites = game.add.group();
+	start = (Math.random() + 0.1) *300
+ 	star = sprites.create(400,start,'star');
+	channel.trigger('client-on_creation', {x:400, y: start, name: name})
+  //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
+}
+
+function update() {
+	star.position.x = (star.position.x + 1) % 800;
+}
+
+setInterval(function () {
+		var x = star.position.x
+		channel.trigger("client-on_change", {x: x, name: name});
+}, 150)
+
+</script>
+
+</body>
+</html>
