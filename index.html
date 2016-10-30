@@ -24,22 +24,22 @@ var pusher = new Pusher('7a1bfccdbcc30d3a4853', {
 var game;
 setTimeout(function () {
 	game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
-}, 2000)
+}, 2500)
 var sprites;
+var cursors;
 var channel = pusher.subscribe('private-positions');
 channel.bind('client-on_change', function(data) {
 	var sprite = enemies[data.name]
-	sprite.position.x = data.x
+	sprite.body.velocity.x = data.x
+	sprite.body.velocity.y = data.y
 });
 channel.bind('client-on_creation', function(data) {
-	var child = new Phaser.Sprite(game, data.x, data.y, 'star')
-	sprites.addChild(child)
+	var child = sprites.create(data.x, data.y, 'star')
 	enemies[data.name] = child
 	channel.trigger('client-'+data.name, {name: name, x: star.x, y: star.y})
 });
 channel.bind('client-'+name, function (data) {
-	var child = new Phaser.Sprite(game, data.x, data.y, 'star')
-	sprites.addChild(child)
+	var child = sprites.create(data.x, data.y, 'star')
 	enemies[data.name] = child
 })
 function preload() {
@@ -52,23 +52,54 @@ function preload() {
 var star;
 
 function create() {
+	game.world.setBounds(0, 0, 800, 600);
+	cursors  = game.input.keyboard.createCursorKeys();
 	game.physics.startSystem(Phaser.Physics.ARCADE);
 	game.add.sprite(0,0,'sky');
 	sprites = game.add.group();
+	sprites.enableBody = true;
 	start = (Math.random() + 0.1) *300
  	star = sprites.create(400,start,'star');
 	channel.trigger('client-on_creation', {x:400, y: start, name: name})
   //  Scale it to fit the width of the game (the original sprite is 400x32 in size)
 }
 
-function update() {
-	star.position.x = (star.position.x + 1) % 800;
-}
+var x = 0;
+var y = 0;
 
-setInterval(function () {
-		var x = star.position.x
-		channel.trigger("client-on_change", {x: x, name: name});
-}, 60)
+function update() {
+	var oldX = x;
+	var oldY = y;
+	if (cursors.left.isDown)
+  {
+    //  Move to the left
+    x = -150;
+		y = 0;
+  }
+  else if (cursors.right.isDown)
+  {
+    //  Move to the right
+    x = 150;
+		y = 0;
+  }
+	else if (cursors.up.isDown) {
+		y = -150
+		x = 0
+	}
+	else if (cursors.down.isDown) {
+		y = 150
+		x = 0
+	}
+	if (oldX != x || oldY != y) {
+		star.body.velocity.x = x;
+		star.body.velocity.y = y;
+		channel.trigger("client-on_change", {x: x, y:y, name: name});
+	}
+	sprites.forEach(function (sprite) {
+		//game.world.wrap(sprite, 0, true);
+	}, this)
+
+}
 
 </script>
 
